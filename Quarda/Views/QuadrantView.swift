@@ -23,6 +23,7 @@ struct QuadrantView: View {
     let onView: (TaskItem) -> Void
     let onEdit: (TaskItem) -> Void
     let onDelete: (TaskItem) -> Void
+    let onCompletionChange: (Bool) -> Void
     let onMove: (TaskItem, TaskQuadrant, TaskItem?) -> Void
 
     var body: some View {
@@ -71,6 +72,7 @@ struct QuadrantView: View {
                                 onView: { onView(task) },
                                 onEdit: { onEdit(task) },
                                 onDelete: { onDelete(task) },
+                                onCompletionChange: onCompletionChange,
                                 onDrag: {
                                     draggedTask = task
                                     return NSItemProvider(object: task.title as NSString)

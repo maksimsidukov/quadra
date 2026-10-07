@@ -8,6 +8,7 @@ struct TaskRowView: View {
     let onView: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
+    let onCompletionChange: (Bool) -> Void
     let onDrag: () -> NSItemProvider
     @State private var isHovering = false
 
@@ -87,6 +88,7 @@ struct TaskRowView: View {
                     task.isCompleted = isCompleted
                     task.completedAt = isCompleted ? .now : nil
                 }
+                onCompletionChange(isCompleted)
                 Task { @MainActor in
                     try? modelContext.save()
                 }

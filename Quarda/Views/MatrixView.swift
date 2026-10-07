@@ -4,13 +4,17 @@ import SwiftUI
 
 struct MatrixView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \TaskItem.createdAt) private var tasks: [TaskItem]
+    @Query(
+        filter: #Predicate<TaskItem> { $0.isCompleted == false },
+        sort: \TaskItem.createdAt
+    ) private var activeTasks: [TaskItem]
     @State private var quadrantForNewTask: TaskQuadrant?
     @State private var taskForViewing: TaskItem?
     @State private var taskForEditing: TaskItem?
     @State private var draggedTask: TaskItem?
     @State private var dropPreview: TaskDropPreview?
     @State private var showsCompletedTasks = false
+    @State private var completedTaskCount = 0
 
     private let columns = [
         GridItem(.flexible(), spacing: 16),
@@ -23,7 +27,6 @@ struct MatrixView: View {
 
             if showsCompletedTasks {
                 CompletedTasksView(
-                    tasks: completedTasks,
                     onBack: { showsCompletedTasks = false },
                     onRestore: restore,
                     onView: { taskForViewing = $0 },
@@ -36,17 +39,41 @@ struct MatrixView: View {
                 matrixContent
                     .transition(.opacity.combined(with: .move(edge: .leading)))
             }
+
+            if let taskForViewing {
+                Color.black.opacity(0.28)
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture(perform: dismissTaskDetails)
+                    .transition(.opacity)
+                    .zIndex(1)
+
+                TaskDetailView(
+                    task: taskForViewing,
+                    onDismiss: dismissTaskDetails
+                )
+                .background(
+                    .thickMaterial,
+                    in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .shadow(color: .black.opacity(0.22), radius: 30, y: 14)
+                .accessibilityAddTraits(.isModal)
+                .transition(.scale(scale: 0.96).combined(with: .opacity))
+                .zIndex(2)
+            }
         }
         .animation(.easeInOut(duration: 0.18), value: showsCompletedTasks)
+        .animation(.easeInOut(duration: 0.16), value: taskForViewing != nil)
         .frame(minWidth: 820, minHeight: 640)
+        .task {
+            refreshCompletedTaskCount()
+        }
         .sheet(item: $quadrantForNewTask) { quadrant in
             AddTaskView(quadrant: quadrant)
         }
         .sheet(item: $taskForEditing) { task in
             EditTaskView(task: task)
-        }
-        .sheet(item: $taskForViewing) { task in
-            TaskDetailView(task: task)
         }
     }
 
@@ -68,6 +95,7 @@ struct MatrixView: View {
                             onView: { taskForViewing = $0 },
                             onEdit: { taskForEditing = $0 },
                             onDelete: delete,
+                            onCompletionChange: completionChanged,
                             onMove: move
                         )
                         .frame(height: quadrantHeight)
@@ -76,16 +104,6 @@ struct MatrixView: View {
             }
         }
         .padding(26)
-    }
-
-    private var activeTasks: [TaskItem] {
-        tasks.filter { !$0.isCompleted }
-    }
-
-    private var completedTasks: [TaskItem] {
-        tasks
-            .filter(\.isCompleted)
-            .sorted { ($0.completedAt ?? $0.createdAt) > ($1.completedAt ?? $1.createdAt) }
     }
 
     private var header: some View {
@@ -114,9 +132,9 @@ struct MatrixView: View {
     }
 
     private var progressSummary: some View {
-        let completed = tasks.filter(\.isCompleted).count
-        let active = tasks.count - completed
-        let progress = tasks.isEmpty ? 0 : Double(completed) / Double(tasks.count)
+        let active = activeTasks.count
+        let total = active + completedTaskCount
+        let progress = total == 0 ? 0 : Double(completedTaskCount) / Double(total)
 
         return HStack(spacing: 10) {
             HStack(spacing: 6) {
@@ -132,7 +150,7 @@ struct MatrixView: View {
 
             Image(systemName: "checkmark.circle.fill")
                 .foregroundStyle(.green)
-            Text("\(completed)/\(tasks.count)")
+            Text("\(completedTaskCount)/\(total)")
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
 
@@ -158,8 +176,8 @@ struct MatrixView: View {
                 Text("История")
                     .fontWeight(.semibold)
 
-                if !completedTasks.isEmpty {
-                    Text("\(completedTasks.count)")
+                if completedTaskCount > 0 {
+                    Text("\(completedTaskCount)")
                         .font(.caption2.bold().monospacedDigit())
                         .foregroundStyle(.indigo)
                         .padding(.horizontal, 7)
@@ -205,8 +223,12 @@ struct MatrixView: View {
     }
 
     private func delete(_ task: TaskItem) {
+        let wasCompleted = task.isCompleted
         withAnimation {
             modelContext.delete(task)
+        }
+        if wasCompleted {
+            completedTaskCount = max(0, completedTaskCount - 1)
         }
         Task { @MainActor in
             try? modelContext.save()
@@ -218,8 +240,23 @@ struct MatrixView: View {
             task.isCompleted = false
             task.completedAt = nil
         }
+        completedTaskCount = max(0, completedTaskCount - 1)
         Task { @MainActor in
             try? modelContext.save()
+        }
+    }
+
+    private func completionChanged(_ isCompleted: Bool) {
+        completedTaskCount = max(0, completedTaskCount + (isCompleted ? 1 : -1))
+    }
+
+    private func dismissTaskDetails() {
+        taskForViewing = nil
+    }
+
+    private func refreshCompletedTaskCount() {
+        if let count = try? CompletedTasksView.fetchCompletedTaskCount(in: modelContext) {
+            completedTaskCount = count
         }
     }
 

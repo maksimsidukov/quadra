@@ -1,18 +1,32 @@
+import SwiftData
 import SwiftUI
 
 struct CompletedTasksView: View {
-    let tasks: [TaskItem]
+    @Environment(\.modelContext) private var modelContext
     let onBack: () -> Void
     let onRestore: (TaskItem) -> Void
     let onView: (TaskItem) -> Void
     let onEdit: (TaskItem) -> Void
     let onDelete: (TaskItem) -> Void
+    @State private var tasks: [TaskItem] = []
+    @State private var totalTaskCount = 0
+    @State private var didLoad = false
+    @State private var isLoading = false
+    @State private var canLoadMore = true
+    @State private var loadError: String?
+
+    private let pageSize = 50
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
             header
 
-            if tasks.isEmpty {
+            if !didLoad || (tasks.isEmpty && isLoading) {
+                ProgressView("Загружаем историю…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if tasks.isEmpty, loadError != nil {
+                loadFailure
+            } else if tasks.isEmpty {
                 ContentUnavailableView {
                     Label("Пока ничего не выполнено", systemImage: "checkmark.circle")
                 } description: {
@@ -21,20 +35,31 @@ struct CompletedTasksView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView(.vertical, showsIndicators: true) {
-                    LazyVStack(spacing: 10) {
-                        ForEach(tasks) { task in
-                            CompletedTaskRow(
-                                task: task,
-                                onRestore: { onRestore(task) },
-                                onView: { onView(task) },
-                                onEdit: { onEdit(task) },
-                                onDelete: { onDelete(task) }
-                            )
+                    LazyVStack(alignment: .leading, spacing: 20) {
+                        ForEach(Self.groupedByCompletionDay(tasks)) { group in
+                            VStack(alignment: .leading, spacing: 10) {
+                                dayHeader(for: group.day)
+
+                                ForEach(group.tasks) { task in
+                                    CompletedTaskRow(
+                                        task: task,
+                                        onRestore: { restore(task) },
+                                        onView: { onView(task) },
+                                        onEdit: { onEdit(task) },
+                                        onDelete: { delete(task) }
+                                    )
+                                }
+                            }
                         }
+
+                        loadMoreFooter
                     }
                     .padding(.vertical, 2)
                 }
             }
+        }
+        .task {
+            loadInitialPage()
         }
     }
 
@@ -57,7 +82,7 @@ struct CompletedTasksView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Text("\(tasks.count)")
+            Text("\(totalTaskCount)")
                 .font(.caption.bold())
                 .foregroundStyle(.green)
                 .padding(.horizontal, 9)
@@ -69,6 +94,173 @@ struct CompletedTasksView: View {
         .padding(.leading, 64)
         .frame(minHeight: 40)
     }
+
+    @ViewBuilder
+    private var loadMoreFooter: some View {
+        if isLoading {
+            ProgressView()
+                .controlSize(.small)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+        } else if let loadError {
+            VStack(spacing: 8) {
+                Text(loadError)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button("Повторить", action: loadNextPage)
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+        } else if canLoadMore {
+            Color.clear
+                .frame(height: 1)
+                .onAppear(perform: loadNextPage)
+        }
+    }
+
+    private var loadFailure: some View {
+        VStack(spacing: 14) {
+            ContentUnavailableView {
+                Label("Не удалось загрузить историю", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(loadError ?? "Попробуйте ещё раз")
+            }
+
+            Button("Повторить", action: loadNextPage)
+                .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    static func fetchCompletedTaskCount(in modelContext: ModelContext) throws -> Int {
+        let descriptor = FetchDescriptor<TaskItem>(
+            predicate: #Predicate { $0.isCompleted }
+        )
+        return try modelContext.fetchCount(descriptor)
+    }
+
+    static func fetchCompletedTasks(
+        in modelContext: ModelContext,
+        offset: Int,
+        limit: Int
+    ) throws -> [TaskItem] {
+        var descriptor = FetchDescriptor<TaskItem>(
+            predicate: #Predicate { $0.isCompleted },
+            sortBy: [
+                SortDescriptor(\TaskItem.completedAt, order: .reverse),
+                SortDescriptor(\TaskItem.createdAt, order: .reverse)
+            ]
+        )
+        descriptor.fetchOffset = offset
+        descriptor.fetchLimit = limit
+        return try modelContext.fetch(descriptor)
+    }
+
+    private func loadInitialPage() {
+        guard !didLoad else { return }
+        didLoad = true
+        loadNextPage(refreshCount: true)
+    }
+
+    private func loadNextPage() {
+        loadNextPage(refreshCount: tasks.isEmpty)
+    }
+
+    private func loadNextPage(refreshCount: Bool) {
+        guard !isLoading, canLoadMore else { return }
+
+        isLoading = true
+        loadError = nil
+
+        Task { @MainActor in
+            await Task.yield()
+
+            do {
+                if refreshCount {
+                    totalTaskCount = try Self.fetchCompletedTaskCount(in: modelContext)
+                }
+
+                let page = try Self.fetchCompletedTasks(
+                    in: modelContext,
+                    offset: tasks.count,
+                    limit: pageSize
+                )
+                let loadedTasks = Set(tasks.map(\.persistentModelID))
+                tasks.append(contentsOf: page.filter { !loadedTasks.contains($0.persistentModelID) })
+                canLoadMore = !page.isEmpty && tasks.count < totalTaskCount
+            } catch {
+                loadError = "Не удалось прочитать данные"
+            }
+
+            isLoading = false
+        }
+    }
+
+    private func restore(_ task: TaskItem) {
+        onRestore(task)
+        removeLoaded(task)
+    }
+
+    private func delete(_ task: TaskItem) {
+        onDelete(task)
+        removeLoaded(task)
+    }
+
+    private func removeLoaded(_ task: TaskItem) {
+        tasks.removeAll { $0 === task }
+        totalTaskCount = max(0, totalTaskCount - 1)
+        canLoadMore = tasks.count < totalTaskCount
+    }
+
+    static func groupedByCompletionDay(
+        _ tasks: [TaskItem],
+        calendar: Calendar = .autoupdatingCurrent
+    ) -> [CompletedTaskDay] {
+        Dictionary(grouping: tasks) { task in
+            calendar.startOfDay(for: task.completedAt ?? task.createdAt)
+        }
+        .map { day, tasks in
+            CompletedTaskDay(
+                day: day,
+                tasks: tasks.sorted {
+                    ($0.completedAt ?? $0.createdAt) > ($1.completedAt ?? $1.createdAt)
+                }
+            )
+        }
+        .sorted { $0.day > $1.day }
+    }
+
+    private func dayHeader(for day: Date) -> some View {
+        HStack(spacing: 8) {
+            Text(dayTitle(for: day))
+                .font(.headline)
+
+            Rectangle()
+                .fill(.quaternary)
+                .frame(height: 1)
+        }
+    }
+
+    private func dayTitle(for day: Date) -> String {
+        let calendar = Calendar.autoupdatingCurrent
+
+        if calendar.isDateInToday(day) {
+            return "Сегодня"
+        }
+        if calendar.isDateInYesterday(day) {
+            return "Вчера"
+        }
+        return day.formatted(.dateTime.day().month(.wide).year())
+    }
+}
+
+struct CompletedTaskDay: Identifiable {
+    let day: Date
+    let tasks: [TaskItem]
+
+    var id: Date { day }
 }
 
 private struct CompletedTaskRow: View {

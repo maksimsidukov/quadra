@@ -79,4 +79,76 @@ final class TaskQuadrantTests: XCTestCase {
         XCTAssertTrue(destination[1] === scheduled)
         XCTAssertEqual(second.quadrant, .schedule)
     }
+
+    @MainActor
+    func testCompletedTasksAreGroupedByDayAndSortedNewestFirst() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+
+        let older = TaskItem(title: "Позавчера", quadrant: .doNow)
+        older.completedAt = Date(timeIntervalSince1970: 1_700_000_000)
+
+        let newer = TaskItem(title: "Сегодня позже", quadrant: .schedule)
+        newer.completedAt = Date(timeIntervalSince1970: 1_700_176_400)
+
+        let earlierSameDay = TaskItem(title: "Сегодня раньше", quadrant: .delegate)
+        earlierSameDay.completedAt = Date(timeIntervalSince1970: 1_700_172_800)
+
+        let groups = CompletedTasksView.groupedByCompletionDay(
+            [older, earlierSameDay, newer],
+            calendar: calendar
+        )
+
+        XCTAssertEqual(groups.count, 2)
+        XCTAssertTrue(groups[0].tasks[0] === newer)
+        XCTAssertTrue(groups[0].tasks[1] === earlierSameDay)
+        XCTAssertTrue(groups[1].tasks[0] === older)
+    }
+
+    @MainActor
+    func testCompletedTasksAreFetchedInPagesNewestFirst() throws {
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(
+            for: TaskItem.self,
+            configurations: configuration
+        )
+        let context = ModelContext(container)
+
+        for index in 0..<75 {
+            let task = TaskItem(
+                title: "Выполненная \(index)",
+                quadrant: .doNow,
+                createdAt: Date(timeIntervalSince1970: Double(index))
+            )
+            task.isCompleted = true
+            task.completedAt = Date(timeIntervalSince1970: Double(index))
+            context.insert(task)
+        }
+
+        context.insert(TaskItem(title: "Активная", quadrant: .schedule))
+        try context.save()
+
+        let total = try CompletedTasksView.fetchCompletedTaskCount(in: context)
+        let firstPage = try CompletedTasksView.fetchCompletedTasks(
+            in: context,
+            offset: 0,
+            limit: 50
+        )
+        let secondPage = try CompletedTasksView.fetchCompletedTasks(
+            in: context,
+            offset: firstPage.count,
+            limit: 50
+        )
+
+        XCTAssertEqual(total, 75)
+        XCTAssertEqual(firstPage.count, 50)
+        XCTAssertEqual(secondPage.count, 25)
+        XCTAssertEqual(firstPage.first?.title, "Выполненная 74")
+        XCTAssertEqual(firstPage.last?.title, "Выполненная 25")
+        XCTAssertEqual(secondPage.first?.title, "Выполненная 24")
+        XCTAssertEqual(secondPage.last?.title, "Выполненная 0")
+
+        let identifiers = Set((firstPage + secondPage).map(\.persistentModelID))
+        XCTAssertEqual(identifiers.count, 75)
+    }
 }

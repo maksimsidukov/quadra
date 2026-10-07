@@ -2,57 +2,55 @@ import Foundation
 import SwiftUI
 
 struct TaskDetailView: View {
-    @Environment(\.dismiss) private var dismiss
     let task: TaskItem
+    let onDismiss: () -> Void
     @State private var showsEditor = false
 
     var body: some View {
-        ZStack {
+        VStack(alignment: .leading, spacing: 22) {
+            header
+
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Описание", systemImage: "text.alignleft")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                if let details = task.details, !details.isEmpty {
+                    LinkifiedText(content: details)
+                } else {
+                    Text("Описание не добавлено")
+                        .foregroundStyle(.tertiary)
+                        .italic()
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 110, alignment: .topLeading)
+            .padding(17)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 15))
+            .overlay {
+                RoundedRectangle(cornerRadius: 15)
+                    .stroke(task.quadrant.tint.opacity(0.14), lineWidth: 1)
+            }
+
+            HStack(spacing: 10) {
+                Spacer()
+                Button("Закрыть", action: onDismiss)
+                    .keyboardShortcut(.cancelAction)
+                    .controlSize(.large)
+                Button("Редактировать", systemImage: "pencil") {
+                    showsEditor = true
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(task.quadrant.tint)
+                .controlSize(.large)
+            }
+        }
+        .padding(26)
+        .background {
             LinearGradient(
                 colors: [task.quadrant.tint.opacity(0.14), Color.clear],
                 startPoint: .topLeading,
                 endPoint: .center
             )
-            .ignoresSafeArea()
-
-            VStack(alignment: .leading, spacing: 22) {
-                header
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Label("Описание", systemImage: "text.alignleft")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-
-                    if let details = task.details, !details.isEmpty {
-                        LinkifiedText(content: details)
-                    } else {
-                        Text("Описание не добавлено")
-                            .foregroundStyle(.tertiary)
-                            .italic()
-                    }
-                }
-                .frame(maxWidth: .infinity, minHeight: 110, alignment: .topLeading)
-                .padding(17)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 15))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 15)
-                        .stroke(task.quadrant.tint.opacity(0.14), lineWidth: 1)
-                }
-
-                HStack(spacing: 10) {
-                    Spacer()
-                    Button("Закрыть") { dismiss() }
-                        .keyboardShortcut(.cancelAction)
-                        .controlSize(.large)
-                    Button("Редактировать", systemImage: "pencil") {
-                        showsEditor = true
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(task.quadrant.tint)
-                    .controlSize(.large)
-                }
-            }
-            .padding(26)
         }
         .frame(width: 560)
         .sheet(isPresented: $showsEditor) {
