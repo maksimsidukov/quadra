@@ -65,7 +65,9 @@ final class MCPToolsTests: XCTestCase {
         _ = try handler.addTask(title: "Active", isImportant: true, isUrgent: true, details: nil)
         _ = try handler.addTask(title: "Done", isImportant: true, isUrgent: true, details: nil)
         let context = ModelContext(container)
-        let done = try fetchAll().first { $0.title == "Done" }!
+        let done = try XCTUnwrap(
+            try context.fetch(FetchDescriptor<TaskItem>()).first { $0.title == "Done" }
+        )
         done.isCompleted = true
         done.completedAt = Date(timeIntervalSince1970: 1_700_000_000)
         try context.save()
