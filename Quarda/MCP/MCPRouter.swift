@@ -1,7 +1,7 @@
 import Foundation
 
 @MainActor
-protocol MCPToolHandling {
+protocol MCPToolHandling: Sendable {
     func listTasks(includeCompleted: Bool) throws -> JSONValue
     func addTask(title: String, isImportant: Bool, isUrgent: Bool, details: String?) throws -> JSONValue
 }
