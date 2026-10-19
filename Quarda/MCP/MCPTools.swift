@@ -62,7 +62,7 @@ final class TaskToolHandler: MCPToolHandling {
         let text = String(data: data, encoding: .utf8) ?? "{}"
         return .object([
             "content": [["type": "text", "text": .string(text)]],
-            "isError": isError,
+            "isError": .bool(isError),
         ])
     }
 }
