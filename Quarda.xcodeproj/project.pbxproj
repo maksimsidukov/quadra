@@ -27,6 +27,8 @@
 		A10000000000000000000014 /* MCPRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* MCPRouterTests.swift */; };
 		A10000000000000000000012 /* MCPTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* MCPTools.swift */; };
 		A10000000000000000000015 /* MCPToolsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017 /* MCPToolsTests.swift */; };
+		A10000000000000000000013 /* MCPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* MCPServer.swift */; };
+		A10000000000000000000016 /* MCPServerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018 /* MCPServerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,6 +64,8 @@
 		A20000000000000000000016 /* MCPRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPRouterTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000014 /* MCPTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPTools.swift; sourceTree = "<group>"; };
 		A20000000000000000000017 /* MCPToolsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPToolsTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000015 /* MCPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServer.swift; sourceTree = "<group>"; };
+		A20000000000000000000018 /* MCPServerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -135,6 +139,7 @@
 				A20000000000000000000012 /* MCPProtocolTests.swift */,
 				A20000000000000000000016 /* MCPRouterTests.swift */,
 				A20000000000000000000017 /* MCPToolsTests.swift */,
+				A20000000000000000000018 /* MCPServerTests.swift */,
 			);
 			path = QuardaTests;
 			sourceTree = "<group>";
@@ -145,6 +150,7 @@
 				A20000000000000000000011 /* MCPProtocol.swift */,
 				A20000000000000000000013 /* MCPRouter.swift */,
 				A20000000000000000000014 /* MCPTools.swift */,
+				A20000000000000000000015 /* MCPServer.swift */,
 			);
 			path = MCP;
 			sourceTree = "<group>";
@@ -271,6 +277,7 @@
 				A1000000000000000000000F /* MCPProtocol.swift in Sources */,
 				A10000000000000000000011 /* MCPRouter.swift in Sources */,
 				A10000000000000000000012 /* MCPTools.swift in Sources */,
+				A10000000000000000000013 /* MCPServer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -282,6 +289,7 @@
 				A10000000000000000000010 /* MCPProtocolTests.swift in Sources */,
 				A10000000000000000000014 /* MCPRouterTests.swift in Sources */,
 				A10000000000000000000015 /* MCPToolsTests.swift in Sources */,
+				A10000000000000000000016 /* MCPServerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
