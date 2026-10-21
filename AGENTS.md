@@ -55,3 +55,14 @@ xcodebuild -project Quarda.xcodeproj -scheme Quarda -destination 'platform=macOS
 - **Анимация переключения**: единый `withAnimation(.easeInOut(duration: 0.18))` на `showsCompletedTasks`
 - **Сохранение**: `modelContext.save()` вызывается после каждой мутации в async-таске
 - **Preview**: используется in-memory ModelContainer (`modelContainer(for: TaskItem.self, inMemory: true)`)
+
+## MCP-сервер
+
+При запуске приложение поднимает локальный MCP-сервер на `http://127.0.0.1:31415/mcp` (код в `Quarda/MCP/`). Порт фиксированный; если порт занят, приложение работает как обычно без MCP (ошибка в логе). Когда приложение закрыто, сервер недоступен.
+
+Инструменты:
+
+- `add_task` — создать задачу. Параметры: `title`, `isImportant`, `isUrgent` (обязательные), `details` (опционально). Задача встаёт в конец своего квадранта и сразу видна в UI.
+- `list_tasks` — список задач по квадрантам. Параметр `include_completed` (по умолчанию false) включает выполненные.
+
+Подключение Claude Code — через `.mcp.json` в корне репозитория.
